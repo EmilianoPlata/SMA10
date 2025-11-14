@@ -28,14 +28,14 @@ class CleaningAgent(CellAgent):
 
     def step(self):
  
-        if self.model.dirty_map[self.cell] == 1:
-            self.model.dirty_map[self.cell] = 0
+        if self.model.dirty_map[self.cell] == 1: #checks if the current cell is dirty
+            self.model.dirty_map[self.cell] = 0  #if it is dirty, it cleans it 
         else:
-            self.move()
+            self.move() #if it is clean, the agent moves to the next cell
 
 class CleaningModel(mesa.Model):
 
-    def __init__(self, n=5, width=10, height=10, dirty_percent=100, max_steps=200, seed=None):
+    def __init__(self, n, width, height, dirty_percent, max_steps, seed=None):
         super().__init__(seed=seed)
 
         self.num_agents = n
@@ -71,13 +71,16 @@ class CleaningModel(mesa.Model):
         self.current_step = 0
 
     def step(self):
-        if self.current_step >= self.max_steps:
+
+        if self.current_step > self.max_steps:
             return
 
+        if compute_percent_clean(self) == 100:
+            return
         self.agents.shuffle_do("step")
-
         self.datacollector.collect(self)
         self.current_step += 1
+
 
 
 def agent_portrayal(agent):
@@ -85,8 +88,8 @@ def agent_portrayal(agent):
 
 model_params = {
     "n": {"type": "SliderInt", "value": 5, "label": "Number of agents:", "min": 1, "max": 50, "step": 1},
-    "width": 10,
-    "height": 10,
+    "width": {"type": "SliderInt", "value": 10, "label": "Width:", "min": 1, "max": 50, "step": 1},
+    "height": {"type": "SliderInt", "value": 10, "label": "Height:", "min": 1, "max": 50, "step": 1},
     "dirty_percent": {"type": "SliderInt", "value": 100, "label": "Initial Dirty (%)", "min": 0, "max": 100, "step": 5},
     "max_steps": 200,
 }
@@ -94,7 +97,8 @@ model_params = {
 PercentPlot = make_plot_component("PercentClean", page=0)
 MovesPlot = make_plot_component("TotalMoves", page=0)
 
-cleaning_model = CleaningModel(n=5, width=10, height=10, dirty_percent=100)
+
+cleaning_model = CleaningModel(n=5, width=10, height=10, dirty_percent=100, max_steps=200)
 
 renderer = SpaceRenderer(model=cleaning_model, backend="matplotlib").render(
     agent_portrayal=agent_portrayal,
