@@ -1,37 +1,56 @@
-import numpy as np
 import mesa
 from mesa.discrete_space import CellAgent, OrthogonalMooreGrid
 from mesa.visualization import SolaraViz, SpaceRenderer, make_plot_component
 from mesa.visualization.components import AgentPortrayalStyle
 
+
 def compute_percent_clean(model):
-    total = len(model.grid.all_cells.cells)
-    dirty = sum(model.dirty_map.values())
-    return 100 * (1 - dirty / total)
+    total_cells = len(model.grid.all_cells.cells)
+    dirty_agents = [a for a in model.agents if isinstance(a, DirtyAgent)]
+    return 100 * (1 - len(dirty_agents) / total_cells)
 
 
 def compute_total_moves(model):
-    return sum(agent.moves for agent in model.agents)
+    cleaning_agents = [a for a in model.agents if isinstance(a, CleaningAgent)]
+    return sum(agent.moves for agent in cleaning_agents)
+
+
+class DirtyAgent(CellAgent):
+    """Representa suciedad en una celda."""
+    def __init__(self, model, cell):
+        super().__init__(model)
+        self.cell = cell
+        cell.add_agent(self) 
 
 
 class CleaningAgent(CellAgent):
     def __init__(self, model, cell):
         super().__init__(model)
         self.cell = cell
+        cell.add_agent(self)
         self.moves = 0
 
     def move(self):
         new_cell = self.cell.neighborhood.select_random_cell()
         if new_cell:
+            # mover correctamente
+            self.cell.remove_agent(self)
+            new_cell.add_agent(self)
             self.cell = new_cell
             self.moves += 1
 
     def step(self):
- 
-        if self.model.dirty_map[self.cell] == 1: #checks if the current cell is dirty
-            self.model.dirty_map[self.cell] = 0  #if it is dirty, it cleans it 
+        contents = list(self.cell.agents)
+        dirt = [a for a in contents if isinstance(a, DirtyAgent)]
+
+        if dirt:
+            for d in dirt:
+                self.cell.remove_agent(d)
+                if d in self.model.agents:
+                    self.model.agents.remove(d)
         else:
-            self.move() #if it is clean, the agent moves to the next cell
+            self.move()
+
 
 class CleaningModel(mesa.Model):
 
@@ -43,17 +62,15 @@ class CleaningModel(mesa.Model):
 
         self.grid = OrthogonalMooreGrid((width, height), random=self.random)
 
-        self.cells_list = list(self.grid.all_cells.cells)
-        self.dirty_map = {cell: 0 for cell in self.cells_list}
-        num_dirty = int(len(self.cells_list) * dirty_percent / 100)
+        cells = list(self.grid.all_cells.cells)
 
-        dirty_cells = self.random.choices(self.cells_list, k=num_dirty)
+        num_dirty = int(len(cells) * dirty_percent / 100)
+        dirty_cells = self.random.sample(cells, num_dirty)
 
-        for c in dirty_cells:
-            self.dirty_map[c] = 1
+        for cell in dirty_cells:
+            DirtyAgent(self, cell)
 
         start_cell = self.grid[(0, 0)]
-
         CleaningAgent.create_agents(
             self,
             self.num_agents,
@@ -72,19 +89,23 @@ class CleaningModel(mesa.Model):
 
     def step(self):
 
-        if self.current_step > self.max_steps:
+        if self.current_step >= self.max_steps:
             return
 
         if compute_percent_clean(self) == 100:
             return
+
         self.agents.shuffle_do("step")
         self.datacollector.collect(self)
         self.current_step += 1
 
 
-
 def agent_portrayal(agent):
-    return AgentPortrayalStyle(color="tab:blue", size=50)
+    if isinstance(agent, CleaningAgent):
+        return AgentPortrayalStyle(color="tab:blue", size=50)
+    elif isinstance(agent, DirtyAgent):
+        return AgentPortrayalStyle(color="brown", size=15)
+
 
 model_params = {
     "n": {"type": "SliderInt", "value": 5, "label": "Number of agents:", "min": 1, "max": 50, "step": 1},
@@ -96,7 +117,6 @@ model_params = {
 
 PercentPlot = make_plot_component("PercentClean", page=0)
 MovesPlot = make_plot_component("TotalMoves", page=0)
-
 
 cleaning_model = CleaningModel(n=5, width=10, height=10, dirty_percent=100, max_steps=200)
 
@@ -110,6 +130,7 @@ page = SolaraViz(
     components=[PercentPlot, MovesPlot],
     model_params=model_params,
     name="Reactive Cleaning Robots",
+    autoStep = True,
 )
 
 app = page
