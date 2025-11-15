@@ -1,3 +1,16 @@
+"""
+Este codigo se usa para simular agentes de limpieza reactivos que se mueven en una cuadricula para limpiar celdas sucias. 
+Los agentes o robots, se mueven aleatoriamente hasta encontrar la suciedad, la limpian y se vuelven a mover hasta limpiar
+el 100% del area o si alcanzan el limite de paso establecidos. 
+
+Maria Fernanda Pineda Pat a01752828
+Daiana Andrea Armenta Maya A01751408
+Emiliano Plata Cardona A01752759
+
+Fecha de creacion: 14/11/25
+Fecha de modificacion: 14/11/25
+"""
+
 import mesa
 from mesa.discrete_space import CellAgent, OrthogonalMooreGrid
 from mesa.visualization import SolaraViz, SpaceRenderer, make_plot_component
@@ -5,12 +18,29 @@ from mesa.visualization.components import AgentPortrayalStyle
 
 
 def compute_percent_clean(model):
+
+    """
+    Calcula el porcentaje de celdas limpias
+    Parámetros: model, instancia del modelo de limpieza
+    Regresa: float, porcentaje de celdas limpias (0-100)
+    """
+
+
     total_cells = len(model.grid.all_cells.cells)
     dirty_agents = [a for a in model.agents if isinstance(a, DirtyAgent)]
     return 100 * (1 - len(dirty_agents) / total_cells)
 
 
 def compute_total_moves(model):
+
+
+    """
+    Calcula el total de movimientos realizados por todos los agentes de limpieza
+    Parámetros: model, instancia del modelo de limpieza
+    Regresa: int, suma total de movimientos de todos los robots
+    """
+
+
     cleaning_agents = [a for a in model.agents if isinstance(a, CleaningAgent)]
     return sum(agent.moves for agent in cleaning_agents)
 
@@ -18,19 +48,44 @@ def compute_total_moves(model):
 class DirtyAgent(CellAgent):
     """Representa suciedad en una celda."""
     def __init__(self, model, cell):
+        """
+        Inicializa un agente de suciedad en una celda especifica
+
+        Parámetros: 
+        model, instancia del modelo de simulacion 
+        cell, celda donde se encontrara el agente        
+        """
+
         super().__init__(model)
         self.cell = cell
         cell.add_agent(self) 
 
 
 class CleaningAgent(CellAgent):
+
+    """Representa un robot de limpieza que se mueve y limpia celdas sucias."""
+
     def __init__(self, model, cell):
+
+        """
+        Inicializa un agente de limpieza en una celda especifica 
+        Parámetros:
+        model, instancia del modelo de simulación
+        cell, celda en donde se encontrara el agente
+
+        """
+
         super().__init__(model)
         self.cell = cell
         cell.add_agent(self)
         self.moves = 0
 
     def move(self):
+
+        """
+        Mueve el agente a una celda vecina aleatoria y actualiza la posición del agente ademas de subir el contador 
+        de movimientos.
+        """
         new_cell = self.cell.neighborhood.select_random_cell()
         if new_cell:
             # mover correctamente
@@ -40,6 +95,11 @@ class CleaningAgent(CellAgent):
             self.moves += 1
 
     def step(self):
+
+        """
+        Ejecuta un paso de la simulación para este agente. Si hay suciedad en la celda en la que se encuentra, la limpia
+        Si no hay suciedad, se mueve a una celda vecina disponible
+        """
         contents = list(self.cell.agents)
         dirt = [a for a in contents if isinstance(a, DirtyAgent)]
 
@@ -54,7 +114,24 @@ class CleaningAgent(CellAgent):
 
 class CleaningModel(mesa.Model):
 
+    """Modelo de simulación de robots de limpieza reactivos."""
+
     def __init__(self, n, width, height, dirty_percent, max_steps, seed=None):
+
+        """
+        Inicializa el modelo de simulación con robots y suciedad
+
+
+        Parámetros:
+        n, número de agentes de limpieza
+        width, ancho de la cuadricula 
+        height, alto de la cuadricula 
+        dirty_percent, porcentaje inicial de celdas sucias
+        max_steps, número máximo de pasos de la simulacion 
+        seed, semilla para generación aleatoria, es opcional
+
+        """
+
         super().__init__(seed=seed)
 
         self.num_agents = n
@@ -89,6 +166,12 @@ class CleaningModel(mesa.Model):
 
     def step(self):
 
+        """
+        Ejecuta un paso de la simulación 
+
+        Detiene la simulación si se alcanza el máximo de pasos o si todas las celdas estan limpias 
+        """
+
         if self.current_step >= self.max_steps:
             return
 
@@ -101,6 +184,14 @@ class CleaningModel(mesa.Model):
 
 
 def agent_portrayal(agent):
+
+    """
+    Define la representación visual de los agentes
+
+    Parámetros: agent, agente a representar
+
+    Retorna: AgentPortrayalStyle, estilo de visualización del agente
+    """
     if isinstance(agent, CleaningAgent):
         return AgentPortrayalStyle(color="tab:blue", size=50)
     elif isinstance(agent, DirtyAgent):
